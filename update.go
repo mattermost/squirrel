@@ -14,7 +14,7 @@ type updateData struct {
 	PlaceholderFormat PlaceholderFormat
 	RunWith           BaseRunner
 	Prefixes          []Sqlizer
-	Table             string
+	Tables            []string
 	SetClauses        []setClause
 	From              []Sqlizer
 	WhereParts        []Sqlizer
@@ -55,7 +55,7 @@ func (d *updateData) QueryRow() RowScanner {
 }
 
 func (d *updateData) ToSql() (sqlStr string, args []interface{}, err error) {
-	if len(d.Table) == 0 {
+	if len(d.Tables) == 0 {
 		err = fmt.Errorf("update statements must specify a table")
 		return
 	}
@@ -76,7 +76,7 @@ func (d *updateData) ToSql() (sqlStr string, args []interface{}, err error) {
 	}
 
 	sql.WriteString("UPDATE ")
-	sql.WriteString(d.Table)
+	sql.WriteString(strings.Join(d.Tables, ", "))
 
 	sql.WriteString(" SET ")
 	setSqls := make([]string, len(d.SetClauses))
@@ -217,8 +217,16 @@ func (b UpdateBuilder) PrefixExpr(expr Sqlizer) UpdateBuilder {
 }
 
 // Table sets the table to be updated.
-func (b UpdateBuilder) Table(table string) UpdateBuilder {
-	return builder.Set(b, "Table", table).(UpdateBuilder)
+// Additional tables are used with supporting databases to implicitly join.
+func (b UpdateBuilder) Table(tables ...string) UpdateBuilder {
+	nonEmptyTables := make([]string, 0, len(tables))
+	for _, table := range tables {
+		if table != "" {
+			nonEmptyTables = append(nonEmptyTables, table)
+		}
+	}
+
+	return builder.Set(b, "Tables", nonEmptyTables).(UpdateBuilder)
 }
 
 // Set adds SET clauses to the query.

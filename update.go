@@ -16,7 +16,7 @@ type updateData struct {
 	Prefixes          []Sqlizer
 	Table             string
 	SetClauses        []setClause
-	From              Sqlizer
+	From              []Sqlizer
 	WhereParts        []Sqlizer
 	OrderBys          []string
 	Limit             string
@@ -101,9 +101,9 @@ func (d *updateData) ToSql() (sqlStr string, args []interface{}, err error) {
 	}
 	sql.WriteString(strings.Join(setSqls, ", "))
 
-	if d.From != nil {
+	if len(d.From) > 0 {
 		sql.WriteString(" FROM ")
-		args, err = appendToSql([]Sqlizer{d.From}, sql, "", args)
+		args, err = appendToSql(d.From, sql, ", ", args)
 		if err != nil {
 			return
 		}
@@ -245,14 +245,14 @@ func (b UpdateBuilder) SetMap(clauses map[string]interface{}) UpdateBuilder {
 // From adds FROM clause to the query
 // FROM is valid construct in postgresql only.
 func (b UpdateBuilder) From(from string) UpdateBuilder {
-	return builder.Set(b, "From", newPart(from)).(UpdateBuilder)
+	return builder.Append(b, "From", newPart(from)).(UpdateBuilder)
 }
 
 // FromSelect sets a subquery into the FROM clause of the query.
 func (b UpdateBuilder) FromSelect(from SelectBuilder, alias string) UpdateBuilder {
 	// Prevent misnumbered parameters in nested selects (#183).
 	from = from.PlaceholderFormat(Question)
-	return builder.Set(b, "From", Alias(from, alias)).(UpdateBuilder)
+	return builder.Append(b, "From", Alias(from, alias)).(UpdateBuilder)
 }
 
 // Where adds WHERE expressions to the query.

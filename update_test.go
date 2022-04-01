@@ -84,24 +84,58 @@ func TestUpdateBuilderNoRunner(t *testing.T) {
 }
 
 func TestUpdateBuilderFrom(t *testing.T) {
-	sql, _, err := Update("employees").Set("sales_count", 100).From("accounts").Where("accounts.name = ?", "ACME").ToSql()
-	assert.NoError(t, err)
-	assert.Equal(t, "UPDATE employees SET sales_count = ? FROM accounts WHERE accounts.name = ?", sql)
+	t.Run("single FROM", func(t *testing.T) {
+		sql, _, err := Update("employees").Set("sales_count", 100).From("accounts").Where("accounts.name = ?", "ACME").ToSql()
+		assert.NoError(t, err)
+		assert.Equal(t, "UPDATE employees SET sales_count = ? FROM accounts WHERE accounts.name = ?", sql)
+	})
+
+	t.Run("multiple FROM", func(t *testing.T) {
+		sql, _, err := Update("employees").Set("sales_count", 100).From("accounts").From("divisions").Where("accounts.name = ?", "ACME").Where("divisions.location = ?", "Toronto").ToSql()
+		assert.NoError(t, err)
+		assert.Equal(t, "UPDATE employees SET sales_count = ? FROM accounts, divisions WHERE accounts.name = ? AND divisions.location = ?", sql)
+	})
 }
 
 func TestUpdateBuilderFromSelect(t *testing.T) {
-	sql, _, err := Update("employees").
-		Set("sales_count", 100).
-		FromSelect(Select("id").
-			From("accounts").
-			Where("accounts.name = ?", "ACME"), "subquery").
-		Where("employees.account_id = subquery.id").ToSql()
-	assert.NoError(t, err)
+	t.Run("single FROM", func(t *testing.T) {
+		sql, _, err := Update("employees").
+			Set("sales_count", 100).
+			FromSelect(Select("id").
+				From("accounts").
+				Where("accounts.name = ?", "ACME"), "subquery").
+			Where("employees.account_id = subquery.id").ToSql()
+		assert.NoError(t, err)
 
-	expectedSql :=
-		"UPDATE employees " +
-			"SET sales_count = ? " +
-			"FROM (SELECT id FROM accounts WHERE accounts.name = ?) AS subquery " +
-			"WHERE employees.account_id = subquery.id"
-	assert.Equal(t, expectedSql, sql)
+		expectedSql :=
+			"UPDATE employees " +
+				"SET sales_count = ? " +
+				"FROM (SELECT id FROM accounts WHERE accounts.name = ?) AS subquery " +
+				"WHERE employees.account_id = subquery.id"
+		assert.Equal(t, expectedSql, sql)
+	})
+
+	t.Run("multiple FROM", func(t *testing.T) {
+		sql, _, err := Update("employees").
+			Set("sales_count", 100).
+			FromSelect(Select("id").
+				From("accounts").
+				Where("accounts.name = ?", "ACME"), "subquery").
+			FromSelect(Select("id").
+				From("divisions").
+				Where("divisions.name = ?", "Toronto"), "d").
+			Where("employees.account_id = subquery.id").
+			Where("employees.division_id = d.id").
+			ToSql()
+		assert.NoError(t, err)
+
+		expectedSql :=
+			"UPDATE employees " +
+				"SET sales_count = ? " +
+				"FROM (SELECT id FROM accounts WHERE accounts.name = ?) AS subquery, " +
+				"(SELECT id FROM divisions WHERE divisions.name = ?) AS d " +
+				"WHERE employees.account_id = subquery.id " +
+				"AND employees.division_id = d.id"
+		assert.Equal(t, expectedSql, sql)
+	})
 }

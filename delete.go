@@ -14,6 +14,7 @@ type deleteData struct {
 	RunWith           BaseRunner
 	Prefixes          []Sqlizer
 	From              string
+	Usings            []string
 	WhereParts        []Sqlizer
 	OrderBys          []string
 	Limit             string
@@ -47,6 +48,11 @@ func (d *deleteData) ToSql() (sqlStr string, args []interface{}, err error) {
 
 	sql.WriteString("DELETE FROM ")
 	sql.WriteString(d.From)
+
+	if len(d.Usings) > 0 {
+		sql.WriteString(" USING ")
+		sql.WriteString(strings.Join(d.Usings, ", "))
+	}
 
 	if len(d.WhereParts) > 0 {
 		sql.WriteString(" WHERE ")
@@ -144,6 +150,11 @@ func (b DeleteBuilder) PrefixExpr(expr Sqlizer) DeleteBuilder {
 // From sets the table to be deleted from.
 func (b DeleteBuilder) From(from string) DeleteBuilder {
 	return builder.Set(b, "From", from).(DeleteBuilder)
+}
+
+// Using adds USING expressions to the query.
+func (b DeleteBuilder) Using(usings ...string) DeleteBuilder {
+	return builder.Extend(b, "Usings", usings).(DeleteBuilder)
 }
 
 // Where adds WHERE expressions to the query.

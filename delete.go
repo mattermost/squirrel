@@ -13,6 +13,7 @@ type deleteData struct {
 	PlaceholderFormat PlaceholderFormat
 	RunWith           BaseRunner
 	Prefixes          []Sqlizer
+	What              []string
 	From              string
 	Usings            []string
 	WhereParts        []Sqlizer
@@ -46,7 +47,14 @@ func (d *deleteData) ToSql() (sqlStr string, args []interface{}, err error) {
 		sql.WriteString(" ")
 	}
 
-	sql.WriteString("DELETE FROM ")
+	sql.WriteString("DELETE")
+
+	if len(d.What) > 0 {
+		sql.WriteString(" ")
+		sql.WriteString(strings.Join(d.What, ", "))
+	}
+
+	sql.WriteString(" FROM ")
 	sql.WriteString(d.From)
 
 	if len(d.Usings) > 0 {
@@ -145,6 +153,12 @@ func (b DeleteBuilder) Prefix(sql string, args ...interface{}) DeleteBuilder {
 // PrefixExpr adds an expression to the very beginning of the query
 func (b DeleteBuilder) PrefixExpr(expr Sqlizer) DeleteBuilder {
 	return builder.Append(b, "Prefixes", expr).(DeleteBuilder)
+}
+
+// What injects something between DELETE and FROM in the query, allowing the MySQL specific
+// multi-table syntax, itself often useful with joins.
+func (b DeleteBuilder) What(what ...string) DeleteBuilder {
+	return builder.Extend(b, "What", what).(DeleteBuilder)
 }
 
 // From sets the table to be deleted from.

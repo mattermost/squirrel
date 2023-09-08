@@ -15,6 +15,7 @@ type deleteData struct {
 	Prefixes          []Sqlizer
 	What              []string
 	From              string
+	Joins             []Sqlizer
 	Usings            []string
 	WhereParts        []Sqlizer
 	OrderBys          []string
@@ -60,6 +61,14 @@ func (d *deleteData) ToSql() (sqlStr string, args []interface{}, err error) {
 	if len(d.Usings) > 0 {
 		sql.WriteString(" USING ")
 		sql.WriteString(strings.Join(d.Usings, ", "))
+	}
+
+	if len(d.Joins) > 0 {
+		sql.WriteString(" ")
+		args, err = appendToSql(d.Joins, sql, " ", args)
+		if err != nil {
+			return
+		}
 	}
 
 	if len(d.WhereParts) > 0 {
@@ -169,6 +178,36 @@ func (b DeleteBuilder) From(from string) DeleteBuilder {
 // Using adds USING expressions to the query.
 func (b DeleteBuilder) Using(usings ...string) DeleteBuilder {
 	return builder.Extend(b, "Usings", usings).(DeleteBuilder)
+}
+
+// JoinClause adds a join clause to the query.
+func (b DeleteBuilder) JoinClause(pred interface{}, args ...interface{}) DeleteBuilder {
+	return builder.Append(b, "Joins", newPart(pred, args...)).(DeleteBuilder)
+}
+
+// Join adds a JOIN clause to the query.
+func (b DeleteBuilder) Join(join string, rest ...interface{}) DeleteBuilder {
+	return b.JoinClause("JOIN "+join, rest...)
+}
+
+// LeftJoin adds a LEFT JOIN clause to the query.
+func (b DeleteBuilder) LeftJoin(join string, rest ...interface{}) DeleteBuilder {
+	return b.JoinClause("LEFT JOIN "+join, rest...)
+}
+
+// RightJoin adds a RIGHT JOIN clause to the query.
+func (b DeleteBuilder) RightJoin(join string, rest ...interface{}) DeleteBuilder {
+	return b.JoinClause("RIGHT JOIN "+join, rest...)
+}
+
+// InnerJoin adds a INNER JOIN clause to the query.
+func (b DeleteBuilder) InnerJoin(join string, rest ...interface{}) DeleteBuilder {
+	return b.JoinClause("INNER JOIN "+join, rest...)
+}
+
+// CrossJoin adds a CROSS JOIN clause to the query.
+func (b DeleteBuilder) CrossJoin(join string, rest ...interface{}) DeleteBuilder {
+	return b.JoinClause("CROSS JOIN "+join, rest...)
 }
 
 // Where adds WHERE expressions to the query.

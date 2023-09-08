@@ -11,6 +11,7 @@ func TestDeleteBuilderToSql(t *testing.T) {
 		Prefix("WITH prefix AS ?", 0).
 		From("a").
 		Where("b = ?", 1).
+		Using("other").
 		OrderBy("c").
 		Limit(2).
 		Offset(3).
@@ -21,7 +22,7 @@ func TestDeleteBuilderToSql(t *testing.T) {
 
 	expectedSql :=
 		"WITH prefix AS ? " +
-			"DELETE FROM a WHERE b = ? ORDER BY c LIMIT 2 OFFSET 3 " +
+			"DELETE FROM a USING other WHERE b = ? ORDER BY c LIMIT 2 OFFSET 3 " +
 			"RETURNING ?"
 	assert.Equal(t, expectedSql, sql)
 

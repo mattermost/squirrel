@@ -457,6 +457,82 @@ func TestExprRecursion(t *testing.T) {
 	}
 }
 
+func TestEqWithSelectBuilder(t *testing.T) {
+	t.Run("placeholder format not set", func(t *testing.T) {
+		subQ := Select("id").From("users").Where(Eq{"role_id": 1, "team_id": "team"})
+		b := Eq{
+			"department_id": 5,
+			"manager_id":    subQ,
+			"status":        "active",
+		}
+		sql, args, err := b.ToSql()
+		assert.NoError(t, err)
+
+		expectedSql := "department_id = ? AND manager_id IN (SELECT id FROM users WHERE role_id = ? AND team_id = ?) AND status = ?"
+		assert.Equal(t, expectedSql, sql)
+
+		expectedArgs := []interface{}{5, 1, "team", "active"}
+		assert.Equal(t, expectedArgs, args)
+	})
+
+	t.Run("placeholder format set to dollar", func(t *testing.T) {
+		subQ := Select("id").From("users").Where(Eq{"role_id": 1, "team_id": "team"})
+		subQ = subQ.PlaceholderFormat(Dollar)
+		b := Eq{
+			"department_id": 5,
+			"manager_id":    subQ,
+			"status":        "active",
+		}
+
+		sql, args, err := b.ToSql()
+		assert.NoError(t, err)
+
+		expectedSql := "department_id = ? AND manager_id IN (SELECT id FROM users WHERE role_id = ? AND team_id = ?) AND status = ?"
+		assert.Equal(t, expectedSql, sql)
+
+		expectedArgs := []interface{}{5, 1, "team", "active"}
+		assert.Equal(t, expectedArgs, args)
+	})
+}
+
+func TestNotEqWithSelectBuilder(t *testing.T) {
+	t.Run("placeholder format not set", func(t *testing.T) {
+		subQ := Select("id").From("users").Where(Eq{"role_id": 1, "team_id": "team"})
+		b := NotEq{
+			"department_id": 5,
+			"manager_id":    subQ,
+			"status":        "active",
+		}
+		sql, args, err := b.ToSql()
+		assert.NoError(t, err)
+
+		expectedSql := "department_id <> ? AND manager_id NOT IN (SELECT id FROM users WHERE role_id = ? AND team_id = ?) AND status <> ?"
+		assert.Equal(t, expectedSql, sql)
+
+		expectedArgs := []interface{}{5, 1, "team", "active"}
+		assert.Equal(t, expectedArgs, args)
+	})
+
+	t.Run("placeholder format set to dollar", func(t *testing.T) {
+		subQ := Select("id").From("users").Where(Eq{"role_id": 1, "team_id": "team"})
+		subQ = subQ.PlaceholderFormat(Dollar)
+		b := NotEq{
+			"department_id": 5,
+			"manager_id":    subQ,
+			"status":        "active",
+		}
+
+		sql, args, err := b.ToSql()
+		assert.NoError(t, err)
+
+		expectedSql := "department_id <> ? AND manager_id NOT IN (SELECT id FROM users WHERE role_id = ? AND team_id = ?) AND status <> ?"
+		assert.Equal(t, expectedSql, sql)
+
+		expectedArgs := []interface{}{5, 1, "team", "active"}
+		assert.Equal(t, expectedArgs, args)
+	})
+}
+
 func ExampleEq() {
 	Select("id", "created", "first_name").From("users").Where(Eq{
 		"company": 20,

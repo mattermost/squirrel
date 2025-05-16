@@ -168,6 +168,21 @@ func (eq Eq) toSQL(useNotOpr bool) (sql string, args []interface{}, err error) {
 			if val, err = v.Value(); err != nil {
 				return
 			}
+
+		// If assigned to a SELECT builder, use IN or NOT IN with the key,
+		// simplifying the construction of nested queries.
+		case SelectBuilder:
+			var sqlVal string
+			var sqlArgs []interface{}
+			v = v.PlaceholderFormat(Question)
+			sqlVal, sqlArgs, err = v.ToSql()
+			if err != nil {
+				return
+			}
+			expr = fmt.Sprintf("%s %s (%s)", key, inOpr, sqlVal)
+			args = append(args, sqlArgs...)
+			exprs = append(exprs, expr)
+			continue
 		}
 
 		r := reflect.ValueOf(val)

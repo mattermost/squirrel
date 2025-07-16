@@ -120,13 +120,14 @@ type aliasExpr struct {
 // Alias allows to define alias for column in SelectBuilder. Useful when column is
 // defined as complex expression like IF or CASE
 // Ex:
-//		.Column(Alias(caseStmt, "case_column"))
+//
+//	.Column(Alias(caseStmt, "case_column"))
 func Alias(expr Sqlizer, alias string) aliasExpr {
 	return aliasExpr{expr, alias}
 }
 
 func (e aliasExpr) ToSql() (sql string, args []interface{}, err error) {
-	sql, args, err = e.expr.ToSql()
+	sql, args, err = nestedToSql(e.expr)
 	if err == nil {
 		sql = fmt.Sprintf("(%s) AS %s", sql, e.alias)
 	}

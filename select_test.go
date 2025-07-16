@@ -11,7 +11,7 @@ import (
 )
 
 func TestSelectBuilderToSql(t *testing.T) {
-	subQ := Select("aa", "bb").From("dd")
+	subQ := Select("aa", "bb").From("dd").Where(Eq{"ss": true})
 	b := Select("a", "b").
 		Prefix("WITH prefix AS ?", 0).
 		Distinct().
@@ -47,7 +47,7 @@ func TestSelectBuilderToSql(t *testing.T) {
 		"WITH prefix AS ? " +
 			"SELECT DISTINCT a, b, c, IF(d IN (?,?,?), 1, 0) as stat_column, a > ?, " +
 			"(b IN (?,?,?)) AS b_alias, " +
-			"(SELECT aa, bb FROM dd) AS subq " +
+			"(SELECT aa, bb FROM dd WHERE ss = ?) AS subq " +
 			"FROM e " +
 			"CROSS JOIN j1 JOIN j2 LEFT JOIN j3 RIGHT JOIN j4 INNER JOIN j5 CROSS JOIN j6 " +
 			"WHERE f = ? AND g = ? AND h = ? AND i IN (?,?,?) AND (j = ? OR (k = ? AND true)) " +
@@ -55,7 +55,57 @@ func TestSelectBuilderToSql(t *testing.T) {
 			"FETCH FIRST ? ROWS ONLY"
 	assert.Equal(t, expectedSql, sql)
 
-	expectedArgs := []interface{}{0, 1, 2, 3, 100, 101, 102, 103, 4, 5, 6, 7, 8, 9, 10, 11, 1, 14}
+	expectedArgs := []interface{}{0, 1, 2, 3, 100, 101, 102, 103, true, 4, 5, 6, 7, 8, 9, 10, 11, 1, 14}
+	assert.Equal(t, expectedArgs, args)
+}
+
+func TestSelectBuilderToSqlDollar(t *testing.T) {
+	subQ := Select("aa", "bb").From("dd").Where(Eq{"ss": true}).PlaceholderFormat(Dollar)
+	b := Select("a", "b").
+		Prefix("WITH prefix AS ?", 0).
+		Distinct().
+		Columns("c").
+		Column("IF(d IN ("+Placeholders(3)+"), 1, 0) as stat_column", 1, 2, 3).
+		Column(Expr("a > ?", 100)).
+		Column(Alias(Eq{"b": []int{101, 102, 103}}, "b_alias")).
+		Column(Alias(subQ, "subq")).
+		From("e").
+		JoinClause("CROSS JOIN j1").
+		Join("j2").
+		LeftJoin("j3").
+		RightJoin("j4").
+		InnerJoin("j5").
+		CrossJoin("j6").
+		Where("f = ?", 4).
+		Where(Eq{"g": 5}).
+		Where(map[string]interface{}{"h": 6}).
+		Where(Eq{"i": []int{7, 8, 9}}).
+		Where(Or{Expr("j = ?", 10), And{Eq{"k": 11}, Expr("true")}}).
+		GroupBy("l").
+		Having("m = n").
+		OrderByClause("? DESC", 1).
+		OrderBy("o ASC", "p DESC").
+		Limit(12).
+		Offset(13).
+		Suffix("FETCH FIRST ? ROWS ONLY", 14).
+		PlaceholderFormat(Dollar)
+
+	sql, args, err := b.ToSql()
+	assert.NoError(t, err)
+
+	expectedSql :=
+		"WITH prefix AS $1 " +
+			"SELECT DISTINCT a, b, c, IF(d IN ($2,$3,$4), 1, 0) as stat_column, a > $5, " +
+			"(b IN ($6,$7,$8)) AS b_alias, " +
+			"(SELECT aa, bb FROM dd WHERE ss = $9) AS subq " +
+			"FROM e " +
+			"CROSS JOIN j1 JOIN j2 LEFT JOIN j3 RIGHT JOIN j4 INNER JOIN j5 CROSS JOIN j6 " +
+			"WHERE f = $10 AND g = $11 AND h = $12 AND i IN ($13,$14,$15) AND (j = $16 OR (k = $17 AND true)) " +
+			"GROUP BY l HAVING m = n ORDER BY $18 DESC, o ASC, p DESC LIMIT 12 OFFSET 13 " +
+			"FETCH FIRST $19 ROWS ONLY"
+	assert.Equal(t, expectedSql, sql)
+
+	expectedArgs := []interface{}{0, 1, 2, 3, 100, 101, 102, 103, true, 4, 5, 6, 7, 8, 9, 10, 11, 1, 14}
 	assert.Equal(t, expectedArgs, args)
 }
 
